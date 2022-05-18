@@ -1,0 +1,253 @@
+---
+title: "Final Project CIS 541"
+class: "Fundaments of Big Data Analytics"
+author: Ana Pacella
+professor: Moises Vasquez
+output: html_notebook
+---
+
+#Data exploration
+```{r}
+#summarizing the data
+summary(wine_testing_data_curated)
+head(wine_testing_data_curated)
+```
+
+```{r}
+#taking only columns that we'll need
+WineData <- wine_testing_data_curated[-c(1,5,6,7,9,10)]
+WineData
+```
+
+#Visualizing the data
+```{r}
+ggplot(data = WineData, mapping = aes(x = points, y = price, color = country)) + 
+  geom_point() + 
+  labs(title = "Wine Data", subtitle = "Price vs Points", x = "Points", y = "Price")
+```
+
+#Grouping different types of wine and averaging its price and points
+```{r}
+WineTypes <- group_by(WineData, variety)
+WineTypesSummary <- summarise(WineTypes, 
+          avgPrice = mean(price),
+          avgPoints = mean(points))
+WineTypesSummary
+```
+
+#Comparing avg price of specific wine types: Pinot Noir and Chardonnay
+```{r}
+#selecting only Pinot Noir
+PinotNoir <- subset(WineData, variety == "Pinot Noir")
+PinotNoir
+```
+
+
+```{r}
+#selecting only Chardonnay
+Chardonnay <- subset(WineData, variety == "Chardonnay")
+Chardonnay
+```
+# peroforming test statistics
+```{r}
+#performing wilcoxon test
+wilcox.test(PinotNoir$price, Chardonnay$price)
+```
+
+#H0: There is no significant statistical difference between the average price of Pinot Noir and Chardonnay wines. 
+#H1: There is significant statistical difference between the average price of Pinot Noir and Chardonnay wines.
+
+#Since p-value is 2.2e-16, meaning that is less than 0.05, it means that there is a significant difference. There is enough evidence to reject H0 and support the claim.
+
+
+```{r}
+PinotChardonnay <- subset(WineData, variety == "Pinot Noir" | variety == "Chardonnay")
+print(PinotChardonnay)
+```
+
+
+```{r}
+ggplot(data = PinotChardonnay, mapping = aes(x = points, y = price, color = variety)) + 
+  geom_point() + 
+  geom_smooth(method = 'loess') + 
+  labs(title = "Wine Types: Chardonnay and Pinot Noir", subtitle = "Price vs Points", x = "Points", y = "Price")
+```
+
+#Now, proceeding to perform regression analysis
+```{r}
+#performing regression analysis by separating data into training and testing sets
+
+#setting random seed for repeatability
+set.seed(123)
+
+#splitting the data
+sample <- sample.split(wine_testing_data_curated$points, SplitRatio = .75)
+train <- subset(wine_testing_data_curated, sample == TRUE)
+test <- subset(wine_testing_data_curated, sample == FALSE)
+```
+
+
+```{r}
+#polynomial regression model
+loessmodel <- loess(points ~ price, data = train)
+loessmodel
+```
+
+```{r}
+#summarizing results of loess function
+summary(loessmodel)
+```
+
+```{r}
+#predicting results of loess function
+predictloess <- predict(loessmodel, test)
+predictloess
+```
+
+```{r}
+#presenting prediction in data frame to make it more legible
+loesspredictionchart <- data.frame(variety = wine_testing_data_curated$variety, points = wine_testing_data_curated$points, predictloess)
+loesspredictionchart
+```
+
+```{r}
+#loess chart with averages  
+PredictionChartLoessVar <- group_by(loesspredictionchart, variety)
+PredictionChartLoessVar <- summarise(PredictionChartLoessVar, 
+          avgPoints = mean(points),
+          avgPredictedPrice = mean(predictloess))
+PredictionChartLoessVar
+```
+
+```{r}
+#checking error on loess
+loessrmse <- rmse(wine_testing_data_curated$price,predictloess)
+loessrmse
+```
+
+
+```{r}
+#linear regression model
+lmmodelreal <- loess(points ~ price, data = train)
+lmmodelreal
+```
+
+```{r}
+#summarizing lineal regression
+summary(lmmodelreal)
+```
+
+```{r}
+#predicting lineal regression
+predictlm <- predict(lmmodel, test)
+predictlm
+```
+
+```{r}
+#presenting prediction in data frame to make it more legible
+lmpredictionchart <- data.frame(variety = wine_testing_data_curated$variety, points = wine_testing_data_curated$points, predictlm)
+lmpredictionchart
+```
+
+
+```{r}
+#lm chart with averages  
+PredictionChartLmVar <- group_by(lmpredictionchart, variety)
+PredictionChartLmVar <- summarise(PredictionChartLmVar, 
+          avgPoints = mean(points),
+          avgPredictedPrice = mean(predictlm))
+PredictionChartLmVar
+```
+
+```{r}
+#checking error on lm
+lmrmse <- rmse(wine_testing_data_curated$price,predictlm)
+lmrmse
+```
+
+#performing regression analysis only with lm and loess 
+```{r}
+#linear regression model
+lmmodel1 <- lm(points ~ price, data = WineTypes)
+lmmodel1
+```
+
+```{r}
+#summarizing lm
+summary(lmmodel1)
+```
+
+```{r}
+#predicting lm
+predictlm1 <- predict(lmmodel1, newdata = wine_testing_data_curated)
+predictlm1
+```
+
+
+```{r}
+#Framing lm data to have it more organized
+predictlmchart1 <- data.frame(variety = wine_testing_data_curated$variety, points = wine_testing_data_curated$points, predictlm1)
+predictlmchart1
+```
+
+
+```{r}
+#Checking error on lm
+require(Metrics)
+lmrmse1 <- rmse(wine_testing_data_curated$points,predictlm1)
+lmrmse1
+```
+
+```{r}
+#nonlinear regression model 
+loessmodel1 <- loess(points ~ price, data = WineTypes)
+loessmodel1
+```
+
+
+```{r}
+#summarizing nonlinear regression model
+summary(loessmodel1)
+```
+
+
+```{r}
+#predicting with loess
+predictloess1 <- predict(loessmodel1, newdata = wine_testing_data_curated)
+predictloess1
+```
+
+```{r}
+#Framing loess data to have it more organized
+predictloesschart1 <- data.frame(variety = wine_testing_data_curated$variety, points = wine_testing_data_curated$points, predictloess1)
+predictloesschart1
+```
+
+```{r}
+require(tidyverse)
+ggplot(data = predictloesschart1, mapping = aes(x = points, y = predictloess1)) +
+  geom_point(color = 'brown') + 
+  labs(title = "Price Predicted for Different Types of Wine", subtitle = "Price Predicted from Points", x = "Points", y = "Price Predicted")
+```
+
+
+```{r}
+#checking loess error
+loessrmse1 <- rmse(wine_testing_data_curated$points,predictloess1)
+loessrmse1
+```
+
+#After conducting RMSE for each model, we can conclude that the model that best suits this analysis is the polynomial regression model (loess), since its error is less (2.53 vs 2.78).
+
+```{r}
+install.packages("dplyr")
+
+```
+
+```{r}
+WineGrouped <- group_by(PinotChardonnay,variety)
+summarise(PinotChardonnay,
+          avgPrice = mean(price),
+          avgPrice = mean(price))
+```
+
